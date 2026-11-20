@@ -16,6 +16,16 @@ final class PadView: NSView {
     }
     required init?(coder: NSCoder) { fatalError() }
 
+    // Fully transparent cursor shown whenever the pointer is over the board.
+    private static let blankCursor: NSCursor = {
+        let img = NSImage(size: NSSize(width: 1, height: 1))
+        img.lockFocus(); NSColor.clear.set(); NSRect(x: 0, y: 0, width: 1, height: 1).fill(); img.unlockFocus()
+        return NSCursor(image: img, hotSpot: .zero)
+    }()
+
+    override func resetCursorRects() { addCursorRect(bounds, cursor: PadView.blankCursor) }
+    override func mouseMoved(with event: NSEvent) { PadView.blankCursor.set() }
+
     override var acceptsFirstResponder: Bool { true }
     override func acceptsFirstMouse(for event: NSEvent?) -> Bool { true }
 
@@ -155,7 +165,20 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
         let primaryHeight = NSScreen.screens.first?.frame.height ?? screen.frame.height
         CGWarpMouseCursorPosition(CGPoint(x: c.x, y: primaryHeight - c.y))
         CGAssociateMouseAndMouseCursorPosition(0)
+        hideCursor()
+    }
+
+    func windowDidBecomeKey(_ note: Notification) {
+        if NSApp.isActive { hideCursor() }
+    }
+
+    private var cursorHidden = false
+    private func hideCursor() {
+        window.invalidateCursorRects(for: window.contentView!)
+        guard !cursorHidden else { return }
+        CGDisplayHideCursor(CGMainDisplayID())
         NSCursor.hide()
+        cursorHidden = true
     }
 
     func applicationWillResignActive(_ note: Notification) { releaseCursor() }
@@ -164,7 +187,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
 
     private func releaseCursor() {
         CGAssociateMouseAndMouseCursorPosition(1)
+        guard cursorHidden else { return }
         NSCursor.unhide()
+        CGDisplayShowCursor(CGMainDisplayID())
+        cursorHidden = false
     }
 }
 
